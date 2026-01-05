@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Data (don’t commit raw CSVs if large/sensitive)
+data/raw/*.csv
+data/processed/*.csv
+
+# Models and reports (you *can* commit figures/metrics; models optional)
+models/*.joblib
+
+# OS
+.DS_Store

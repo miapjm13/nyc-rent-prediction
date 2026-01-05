@@ -1,0 +1,34 @@
+{
+  "final_model": "HistGB",
+  "rf_cv": {
+    "name": "RandomForest",
+    "rmse_mean": 0.2768627800322432,
+    "rmse_std": 0.04441126720493554,
+    "mae_mean": 0.21338019992932972,
+    "mae_std": 0.03833893036099475
+  },
+  "hgb_cv": {
+    "name": "HistGB",
+    "rmse_mean": 0.2747155449261578,
+    "rmse_std": 0.030132729508218315,
+    "mae_mean": 0.2108093577834155,
+    "mae_std": 0.020549796040663496
+  },
+  "test_rmse_log": 0.25707333165185636,
+  "test_mae_log": 0.19273101962108566,
+  "test_mae_dollars": 471.22975941146996,
+  "n_rows_train": 175,
+  "n_features": 18,
+  "top_features": {
+    "pct_rent_impairing": 0.3062749393580074,
+    "grand_larceny_auto": 0.0950360303418055,
+    "violations_per_building": 0.06903884220481368,
+    "grand_larceny": 0.0610781430312873,
+    "num_properties": 0.056801804726728154,
+    "avg_market_value": 0.051861133566983256,
+    "avg_unitsres": 0.012692524862861654,
+    "total_violations": 0.010410383501362969,
+    "num_bbls": 0.00859004823333206,
+    "burglary": 0.003736607411822129
+  }
+}
