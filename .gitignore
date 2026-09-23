@@ -3,12 +3,19 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Data (don’t commit raw CSVs if large/sensitive)
-data/raw/*.csv
-data/processed/*.csv
+# Data (do NOT commit raw or intermediate data files)
+data/raw/
+data/processed/*
+!data/processed/04_final_nta_rent_predictions.csv
+!data/processed/nta_boundaries.geojson
 
-# Models and reports (you *can* commit figures/metrics; models optional)
+# Models
 models/*.joblib
 
 # OS
 .DS_Store
+
+# Virtual environments
+venv/
+.venv/
+test_env/
