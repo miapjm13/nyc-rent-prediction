@@ -1,5 +1,4 @@
 import json
-import sys
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -9,17 +8,13 @@ st.set_page_config(page_title="NYC Rent Prediction (NTA)", layout="wide")
 
 ROOT = Path(__file__).resolve().parents[1]
 PRED_PATH = ROOT / "data" / "processed" / "04_final_nta_rent_predictions.csv"
-RAW_PATH = ROOT / "data" / "raw" / "rental_report_final.csv"
 METRICS_PATH = ROOT / "reports" / "metrics" / "03_metrics.json"
 GEOJSON_PATH = ROOT / "data" / "processed" / "nta_boundaries.geojson"
 
-sys.path.insert(0, str(ROOT / "src"))
-from config import add_crime_rates
-
 BOROUGH_NAMES = {"BX": "Bronx", "BK": "Brooklyn", "MN": "Manhattan", "QN": "Queens", "SI": "Staten Island"}
-BOROUGH_COLORS = {"Bronx": "#EA178BC0", "Brooklyn": "#F2622E", "Manhattan": "#4F6DF5",
+BOROUGH_COLORS = {"Bronx": "#C23B22", "Brooklyn": "#F2622E", "Manhattan": "#4F6DF5",
                    "Queens": "#2FA84F", "Staten Island": "#6E7B8B"}
-GOLD = "#6A1251BF"
+GOLD = "#F2B705"
 
 st.markdown("""
     <style>
@@ -49,14 +44,6 @@ def load_predictions():
 
 
 @st.cache_data
-def load_raw_features():
-    cols = ["nta2020", "pct_rent_impairing", "grand_larceny_auto_rate", "avg_market_value"]
-    raw = pd.read_csv(RAW_PATH)
-    raw = add_crime_rates(raw)
-    return raw[[c for c in cols if c in raw.columns]]
-
-
-@st.cache_data
 def load_metrics():
     return json.loads(METRICS_PATH.read_text())
 
@@ -68,20 +55,19 @@ def load_nta_geojson():
 
 
 df = load_predictions()
-raw_features = load_raw_features()
 metrics = load_metrics()
 
 st.title("NYC Neighborhood Rent Prediction (NTA)")
 st.caption(
-    "Predicts median monthly rent across NYC's 260 neighborhoods using housing quality, "
+    "Predicts median monthly rent across NYC's residential neighborhoods using housing quality, "
     "crime, and property market signals — no unit-level data."
 )
 
 with st.expander("How to read this"):
-    st.markdown("""
+    st.markdown(f"""
     - **NTA** (Neighborhood Tabulation Area) — NYC's standard neighborhood boundary system, used by the Census and city agencies.
-    - **216 residential neighborhoods shown** — 44 NTAs representing parks, cemeteries, airports, and similar non-residential land (e.g. Central Park, LaGuardia Airport, Green-Wood Cemetery) were excluded, since they have no real rental market.
-    - **Actual vs. predicted** — of the 216 residential NTAs, 175 have real reported rent data. The rest have no reliable rent statistics, so their number shown is the model's estimate.
+    - **{len(df)} residential neighborhoods shown** — 44 NTAs representing parks, cemeteries, airports, and similar non-residential land (e.g. Central Park, LaGuardia Airport, Green-Wood Cemetery) were excluded, since they have no real rental market.
+    - **Actual vs. predicted** — of these, most have real reported rent data. The rest have no reliable rent statistics, so their number shown is the model's estimate.
     - **80% prediction interval** — the model's likely range for a neighborhood's rent, not just a single guess. Wider ranges mean less confidence.
     - **What the model doesn't know** — apartment size, bedroom count, amenities, floor, exact address, or unit condition. A neighborhood estimate is not a quote for any specific apartment in it.
     - **Model accuracy** — typical error is about 20–25% of actual rent, reflecting the neighborhood-level (not unit-level) data available. Full methodology in the project README.
@@ -123,7 +109,6 @@ st.caption("See which neighborhoods fit your budget, ranked by housing quality a
 
 max_budget = st.slider("Max monthly rent:", min_value=1000, max_value=6000, value=2500, step=100)
 in_budget = df[df["pred_median_rent"] <= max_budget].copy()
-in_budget = in_budget.merge(raw_features, on="nta2020", how="left")
 
 if in_budget.empty:
     st.write("No neighborhoods currently fit that budget in this dataset.")
@@ -180,14 +165,12 @@ col3.metric("80% interval width", f"${pred_high - pred_low:,.0f}")
 st.caption(f"Likely range: ${pred_low:,.0f} – ${pred_high:,.0f}")
 st.write(f"More expensive than **{row['rent_percentile']:.0f}%** of NYC neighborhoods.")
 
-feat_row = raw_features[raw_features["nta2020"] == nta_code]
-if not feat_row.empty:
-    fr = feat_row.iloc[0]
-    st.markdown("**Underlying signals for this neighborhood:**")
-    fc1, fc2, fc3 = st.columns(3)
-    fc1.metric("Rent-impairing violations", f"{fr['pct_rent_impairing']:.1%}" if pd.notna(fr.get("pct_rent_impairing")) else "—")
-    fc2.metric("Auto theft rate (per 1k units)", f"{fr['grand_larceny_auto_rate']:.2f}" if pd.notna(fr.get("grand_larceny_auto_rate")) else "—")
-    fc3.metric("Avg. market value", f"${fr['avg_market_value']:,.0f}" if pd.notna(fr.get("avg_market_value")) else "—")
+fr = row  # underlying signals already present on this row
+st.markdown("**Underlying signals for this neighborhood:**")
+fc1, fc2, fc3 = st.columns(3)
+fc1.metric("Rent-impairing violations", f"{fr['pct_rent_impairing']:.1%}" if pd.notna(fr.get("pct_rent_impairing")) else "—")
+fc2.metric("Auto theft rate (per 1k units)", f"{fr['grand_larceny_auto_rate']:.2f}" if pd.notna(fr.get("grand_larceny_auto_rate")) else "—")
+fc3.metric("Avg. market value", f"${fr['avg_market_value']:,.0f}" if pd.notna(fr.get("avg_market_value")) else "—")
 
 st.divider()
 

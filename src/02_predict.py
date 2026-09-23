@@ -37,7 +37,8 @@ def main():
 
     final_output = df[[
         "nta2020", "ntaname", "borough", "median_monthly_rent",
-        "pred_median_rent", "pred_low_median_rent", "pred_high_median_rent"
+        "pred_median_rent", "pred_low_median_rent", "pred_high_median_rent",
+        "pct_rent_impairing", "grand_larceny_auto_rate", "avg_market_value"
     ]].copy()
 
     final_output["rent_source"] = np.where(
