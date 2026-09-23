@@ -1,3 +1,12 @@
+"""
+NYC rent prediction demo. Reads precomputed model output, this file never
+scores anything live, so it has no dependency on the trained models,
+config.py, or raw data. Everything it needs lives in
+04_final_nta_rent_predictions.csv and 03_metrics.json, both produced by
+src/02_predict.py. Keeping it this way is what let this deploy cleanly on
+Streamlit Cloud without geopandas/scikit-learn as runtime dependencies.
+"""
+
 import json
 import pandas as pd
 import streamlit as st
@@ -65,12 +74,12 @@ st.caption(
 
 with st.expander("How to read this"):
     st.markdown(f"""
-    - **NTA** (Neighborhood Tabulation Area) — NYC's standard neighborhood boundary system, used by the Census and city agencies.
-    - **{len(df)} residential neighborhoods shown** — 44 NTAs representing parks, cemeteries, airports, and similar non-residential land (e.g. Central Park, LaGuardia Airport, Green-Wood Cemetery) were excluded, since they have no real rental market.
-    - **Actual vs. predicted** — of these, most have real reported rent data. The rest have no reliable rent statistics, so their number shown is the model's estimate.
-    - **80% prediction interval** — the model's likely range for a neighborhood's rent, not just a single guess. Wider ranges mean less confidence.
-    - **What the model doesn't know** — apartment size, bedroom count, amenities, floor, exact address, or unit condition. A neighborhood estimate is not a quote for any specific apartment in it.
-    - **Model accuracy** — typical error is about 20–25% of actual rent, reflecting the neighborhood-level (not unit-level) data available. Full methodology in the project README.
+    - **NTA** (Neighborhood Tabulation Area) : NYC's standard neighborhood boundary system, used by the Census and city agencies.
+    - **{len(df)} residential neighborhoods shown** : 44 NTAs representing parks, cemeteries, airports, and similar non-residential land (e.g. Central Park, LaGuardia Airport, Green-Wood Cemetery) were excluded, since they have no real rental market.
+    - **Actual vs. predicted** : of these, most have real reported rent data. The rest have no reliable rent statistics, so their number shown is the model's estimate.
+    - **80% prediction interval** : the model's likely range for a neighborhood's rent, not just a single guess. Wider ranges mean less confidence.
+    - **What the model doesn't know** : apartment size, bedroom count, amenities, floor, exact address, or unit condition. A neighborhood estimate is not a quote for any specific apartment in it.
+    - **Model accuracy** : typical error is about 20–25% of actual rent, reflecting the neighborhood-level (not unit-level) data available. Full methodology in the project README.
     """)
 
 st.divider()
@@ -83,7 +92,7 @@ geojson = load_nta_geojson()
 map_df = df.copy()
 
 if map_metric == "Predicted rent":
-    color_col, color_label, scale = "pred_median_rent", "Predicted rent ($)", [[0, "#16233A"], [1, "#F2B705"]]
+    color_col, color_label, scale = "pred_median_rent", "Predicted rent ($)", [[0, "#16233A"], [1, GOLD]]
 else:
     map_df["interval_width"] = map_df["pred_high_median_rent"] - map_df["pred_low_median_rent"]
     color_col, color_label, scale = "interval_width", "Interval width ($)", [[0, "#16233A"], [1, "#F2622E"]]
@@ -113,6 +122,7 @@ in_budget = df[df["pred_median_rent"] <= max_budget].copy()
 if in_budget.empty:
     st.write("No neighborhoods currently fit that budget in this dataset.")
 else:
+    # lower violation rate = better rank, so rank() ascending is what is wanted here
     in_budget["quality_rank"] = in_budget["pct_rent_impairing"].rank()
     in_budget = in_budget.sort_values("quality_rank")
     show = in_budget[["ntaname", "borough_name", "pred_median_rent",
@@ -165,12 +175,11 @@ col3.metric("80% interval width", f"${pred_high - pred_low:,.0f}")
 st.caption(f"Likely range: ${pred_low:,.0f} – ${pred_high:,.0f}")
 st.write(f"More expensive than **{row['rent_percentile']:.0f}%** of NYC neighborhoods.")
 
-fr = row  # underlying signals already present on this row
 st.markdown("**Underlying signals for this neighborhood:**")
 fc1, fc2, fc3 = st.columns(3)
-fc1.metric("Rent-impairing violations", f"{fr['pct_rent_impairing']:.1%}" if pd.notna(fr.get("pct_rent_impairing")) else "—")
-fc2.metric("Auto theft rate (per 1k units)", f"{fr['grand_larceny_auto_rate']:.2f}" if pd.notna(fr.get("grand_larceny_auto_rate")) else "—")
-fc3.metric("Avg. market value", f"${fr['avg_market_value']:,.0f}" if pd.notna(fr.get("avg_market_value")) else "—")
+fc1.metric("Rent-impairing violations", f"{row['pct_rent_impairing']:.1%}" if pd.notna(row.get("pct_rent_impairing")) else "—")
+fc2.metric("Auto theft rate (per 1k units)", f"{row['grand_larceny_auto_rate']:.2f}" if pd.notna(row.get("grand_larceny_auto_rate")) else "—")
+fc3.metric("Avg. market value", f"${row['avg_market_value']:,.0f}" if pd.notna(row.get("avg_market_value")) else "—")
 
 st.divider()
 
@@ -193,7 +202,8 @@ st.download_button(
 
 st.divider()
 
-# --- Model performance (tucked away, not headline) ---
+# --- Model performance, tucked into an expander so it doesn't compete
+# with the actual tool for attention ---
 with st.expander("About this model"):
     st.write(
         f"Model: {metrics['final_model']}. Typical error: ${metrics['test_mae_dollars']:,.0f} "

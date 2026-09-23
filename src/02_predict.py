@@ -1,3 +1,13 @@
+"""
+Loads the trained model + the two quantile models, scores every NTA,
+and writes the final predictions CSV that the Streamlit app reads.
+
+This is the only place non-residential NTAs (parks, cemeteries, airports —
+see config.py) get filtered out. They're excluded *after* scoring rather
+than before, just because it's simpler to score everything and drop rows
+at the end than to carry two different NTA lists through the pipeline.
+"""
+
 import numpy as np
 import pandas as pd
 import joblib
@@ -13,7 +23,9 @@ def main():
     df = add_crime_rates(df)
     df = add_borough_dummies(df)
 
-    exclude = ["nta2020", "ntaname", *RAW_TARGET_COLS,
+    # Same exclude list as training — has to match or the model gets fed
+    # different columns than it was trained on.
+    exclude = ["nta2020", "ntaname", "borough", *RAW_TARGET_COLS,
                TARGET_LOG, *DROPPED_FEATURES, *CRIME_COLS]
     feature_cols = [c for c in df.columns if c not in exclude]
 
@@ -27,14 +39,19 @@ def main():
 
     df["pred_log_median_rent"] = model.predict(X)
     df["pred_median_rent"] = np.exp(df["pred_log_median_rent"])
+
+    # Same X for the quantile models — they were trained on identical features.
     lower_model = joblib.load(LOWER_MODEL_PATH)
     upper_model = joblib.load(UPPER_MODEL_PATH)
-
     df["pred_low_median_rent"] = np.exp(lower_model.predict(X))
     df["pred_high_median_rent"] = np.exp(upper_model.predict(X))
 
+    # Drop parks/cemeteries/airports etc. — see config.py for why.
     df = df[~df["nta2020"].isin(NON_RESIDENTIAL_NTAS)].copy()
 
+    # pct_rent_impairing / grand_larceny_auto_rate / avg_market_value are
+    # here so the Streamlit app can show "why" behind a prediction without
+    # needing to touch the raw data file itself (raw data isn't committed).
     final_output = df[[
         "nta2020", "ntaname", "borough", "median_monthly_rent",
         "pred_median_rent", "pred_low_median_rent", "pred_high_median_rent",

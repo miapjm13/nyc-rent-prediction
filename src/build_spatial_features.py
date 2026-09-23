@@ -1,3 +1,15 @@
+"""
+Computes distance from each NTA's centroid to Midtown Manhattan, as a
+finer-grained alternative to the borough feature.
+
+Not used in the final model, just kept here for transparency. This became
+the single most important feature by permutation importance, but didn't
+actually improve CV RMSE and made the quantile intervals noticeably less
+reliable, so it got reverted. Full story in the README under
+"An idea that didn't pan out." Left it as a standalone script rather than
+deleting it since it's a real result, and not a mistake.
+"""
+
 import pandas as pd
 import geopandas as gpd
 from shapely import wkt
@@ -8,6 +20,9 @@ from config import DATA_RAW, DATA_PROCESSED
 NTA_BOUNDARIES_PATH = DATA_RAW.parent / "nta_boundaries.csv"
 OUT_PATH = DATA_PROCESSED / "nta_spatial_features.csv"
 
+# Rough Midtown coordinates, used as a stand-in for "NYC's core" since
+# it's the obvious reference point and the model already had a Manhattan
+# underprediction problem centered around there.
 MIDTOWN_LAT, MIDTOWN_LON = 40.7549, -73.9840
 
 
@@ -25,9 +40,13 @@ def main():
     nta_gdf = gpd.GeoDataFrame(
         nta_boundaries, geometry="geometry", crs="EPSG:4326")
 
+    # Reproject to NY State Plane (feet) before taking centroids. lat/long
+    # degrees don't give a true centroid for irregularly shaped polygons,
+    # a projected CRS does.
     nta_gdf = nta_gdf.to_crs(epsg=2263)
     nta_gdf["centroid"] = nta_gdf.geometry.centroid
 
+    # then back to lat/long for the actual distance calculation.
     centroid_wgs84 = nta_gdf["centroid"].to_crs(epsg=4326)
     nta_gdf["centroid_lon"] = centroid_wgs84.x
     nta_gdf["centroid_lat"] = centroid_wgs84.y

@@ -1,3 +1,15 @@
+"""
+Trains the final rent model. Compares 4 model families (RF, HistGB,
+LightGBM, XGBoost), each tuned separately, picks whichever wins on CV.
+
+Spoiler: they all land in basically the same spot (~0.25-0.26 CV RMSE),
+which says more about the feature set hitting a ceiling than about any
+one model being "best." See the README for the full writeup.
+
+Also trains two extra HistGB models with quantile loss so we get a
+prediction interval, and not just a point estimate.
+"""
+
 import json
 import numpy as np
 import pandas as pd
@@ -61,6 +73,8 @@ def make_X_y(df: pd.DataFrame):
 
 
 def cv_evaluate(model, X, y, name, cv):
+    # Using CV here, not a single train/test split, only 175 rows total,
+    # so one split can get lucky/unlucky. CV is the number that actually matters.
     rmses, maes = [], []
     for tr, va in cv.split(X):
         X_tr, X_va = X.iloc[tr], X.iloc[va]
@@ -75,6 +89,8 @@ def cv_evaluate(model, X, y, name, cv):
 
 
 def tune(pipe, param_dist, X, y, cv, name):
+    # Same tuning treatment for every model. Didn't want to end up comparing
+    # a carefully-tuned model against three that were left on default settings.
     search = RandomizedSearchCV(
         pipe, param_distributions=param_dist, n_iter=30, cv=cv,
         scoring="neg_root_mean_squared_error", random_state=42, n_jobs=-1
@@ -83,6 +99,18 @@ def tune(pipe, param_dist, X, y, cv, name):
     print(f"Best {name} params:", search.best_params_)
     print(f"Best {name} CV RMSE (log):", -search.best_score_)
     return search.best_estimator_
+
+
+def make_quantile_pipe(quantile):
+    # Always HistGB here regardless of which model wins above. RF doesn't
+    # do quantile loss the same way, so this stays fixed either way.
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("model", HistGradientBoostingRegressor(
+            loss="quantile", quantile=quantile, random_state=42,
+            learning_rate=0.05, max_depth=6, max_leaf_nodes=31, min_samples_leaf=10
+        ))
+    ])
 
 
 def plot_actual_vs_pred(y_test, y_pred, title, out_path: Path):
@@ -156,6 +184,8 @@ def main():
     lgbm_cv_rmse, lgbm_cv_mae = cv_evaluate(lgbm_pipe, X, y, "LightGBM", cv)
     xgb_cv_rmse, xgb_cv_mae = cv_evaluate(xgb_pipe, X, y, "XGBoost", cv)
 
+    # Whoever's lowest on CV RMSE wins. Don't expect a landslide, see the
+    # docstring up top. These usually come out within noise of each other.
     candidates = {
         "RandomForest": (rf_pipe, rf_cv_rmse),
         "HistGB": (hgb_pipe, hgb_cv_rmse),
@@ -180,16 +210,6 @@ def main():
 
     joblib.dump(final_model, FINAL_MODEL_PATH)
 
-    # Quantile models for prediction intervals
-    def make_quantile_pipe(quantile):
-        return Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("model", HistGradientBoostingRegressor(
-                loss="quantile", quantile=quantile, random_state=42,
-                learning_rate=0.05, max_depth=6, max_leaf_nodes=31, min_samples_leaf=10
-            ))
-        ])
-
     lower_pipe = make_quantile_pipe(0.10)
     upper_pipe = make_quantile_pipe(0.90)
     lower_pipe.fit(X_train, y_train)
@@ -199,6 +219,8 @@ def main():
 
     plot_actual_vs_pred(y_test, y_pred, f"Actual vs Predicted ({final_name})", FIG_ACTUAL_VS_PRED)
 
+    # RF gives us feature_importances_ for free, the others don't, so
+    # permutation importance for those, to keep the comparison fair.
     if final_name == "RandomForest":
         model = final_model.named_steps["model"]
         importances = pd.Series(model.feature_importances_, index=feature_cols).sort_values(ascending=False)
