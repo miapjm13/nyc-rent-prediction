@@ -69,7 +69,7 @@ metrics = load_metrics()
 st.title("NYC Neighborhood Rent Prediction (NTA)")
 st.caption(
     "Predicts median monthly rent across NYC's residential neighborhoods using housing quality, "
-    "crime, and property market signals — no unit-level data."
+    "crime, and property market signals (no unit-level data)."
 )
 
 with st.expander("How to read this"):
@@ -114,7 +114,7 @@ st.divider()
 
 # --- Budget finder ---
 st.subheader("Find neighborhoods in your budget")
-st.caption("See which neighborhoods fit your budget, ranked by housing quality and safety — not just price.")
+st.caption("See which neighborhoods fit your budget, ranked by housing quality and safety, not just price.")
 
 max_budget = st.slider("Max monthly rent:", min_value=1000, max_value=6000, value=2500, step=100)
 in_budget = df[df["pred_median_rent"] <= max_budget].copy()
@@ -223,7 +223,7 @@ with st.expander("About this model"):
     st.dataframe(worst_show, width="stretch", hide_index=True)
     st.caption(
         "These are typically high-rent or otherwise atypical neighborhoods that are "
-        "underrepresented in the training data — a known limitation, not a data error."
+        "underrepresented in the training data which isa known limitation, not a data error."
     )
 
 st.divider()
