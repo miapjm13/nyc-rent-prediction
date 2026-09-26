@@ -1,6 +1,6 @@
 # NYC Neighborhood Rent Prediction (NTA-Level)
 
-An end-to-end ML pipeline to predict median monthly rent across NYC's residential neighborhoods (NTA 2020 boundaries), built to explore a specific question: how much of a neighborhood's rent can you explain using only public administrative data — housing quality, crime, and property market signals — without any information about individual units?
+An end-to-end ML pipeline to predict median monthly rent across NYC's residential neighborhoods (NTA 2020 boundaries), built to explore a specific question: how much of a neighborhood's rent can you explain using only public administrative data (housing quality, crime, and property market signals) without any information about individual units?
 
 This project is as much a case study in **honest model evaluation and data validation** as it is a rent predictor: several feature and modeling ideas were tested, validated (or rejected) using cross-validation rather than a single train/test split, a data quality issue was found and excluded rather than silently accepted, and a promising-looking feature change was reverted after deeper inspection showed it didn't hold up. That process, while, not the final accuracy number, is the actual point of this project.
 
