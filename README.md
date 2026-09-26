@@ -110,4 +110,62 @@ The app reads precomputed predictions rather than scoring live, so it stays fast
 
 ## Reproducible pipeline
 
-_(unchanged from before — keep your existing "place the modeling table / install dependencies / train / predict / Streamlit demo" instructions here)_
+**1️⃣ Place the raw data**
+
+Export the final modeling table from Postgres/PostGIS and place it at:
+
+    data/raw/rental_report_final.csv
+
+If you also want the interactive map in the Streamlit app, place the NTA boundaries export (WKT geometry) at:
+
+    data/raw/nta_boundaries.csv
+
+Note: the raw modeling table isn't included in this repo, since it's exported from a private PostgreSQL/PostGIS database built from several joined data sources. See the Data & Features section above for what it contains.
+
+**2️⃣ Install dependencies**
+
+```bash
+pip install -r requirements.txt
+```
+
+**3️⃣ Train and evaluate the model**
+
+```bash
+python -m src.01_train
+```
+
+This will:
+- tune and cross-validate 4 model families (Random Forest, HistGradientBoosting, LightGBM, XGBoost)
+- select the best on CV RMSE and evaluate it on a held-out test set
+- train quantile models (10th/90th percentile) for prediction intervals
+- save the trained model artifacts, metrics (`reports/metrics/03_metrics.json`), and figures (`reports/figures/`)
+
+**4️⃣ Predict rent for all NTAs**
+
+```bash
+python -m src.02_predict
+```
+
+This generates:
+
+    data/processed/04_final_nta_rent_predictions.csv
+
+(non-residential NTAs (parks, cemeteries, airports) are automatically excluded; see `config.py`)
+
+**5️⃣ Build the map data (only needed once, for the Streamlit app)**
+
+```bash
+python -m src.build_nta_geojson
+```
+
+This converts the NTA boundaries into `data/processed/nta_boundaries.geojson`, which the app reads directly.
+
+**6️⃣ Run the Streamlit app**
+
+```bash
+streamlit run app/01_streamlit_app.py
+```
+
+The app only reads precomputed files (steps 3–5), it never re-scores or touches raw data itself, so it stays fast and has no modeling dependencies at runtime.
+
+**Live demo:** [nyc-rent-prediction-l3nvrmrqtpxsjvmuxwpmeu.streamlit.app](https://nyc-rent-prediction-l3nvrmrqtpxsjvmuxwpmeu.streamlit.app/)
